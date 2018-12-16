@@ -18,6 +18,10 @@
  */
 package rdj;
 
+import rdj.Service.LoggingService;
+import rdj.UIs.MainUI;
+import sun.applet.Main;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -34,11 +38,18 @@ import java.util.TimerTask;
 
 public class DeviceController
 {
+    private static LoggingService loggingService;
+    private static MainUI mainUI;
+
+    static {
+        loggingService = LoggingService.get();
+        mainUI = MainUI.get();
+    }
+
     int bufferSize = 1024 * 1024 * 1;
     static long deviceSize = 0;
     long keySize = 0;
     static long bytesPerSector = 512;
-    static UI ui;
     private static boolean pausing;
     private static boolean stopPending;
     private TimerTask updateProgressTask;
@@ -59,9 +70,8 @@ public class DeviceController
     private long bytesPerMilliSecond;
     private Calendar processProgressCalendar;
 
-	public DeviceController(UI ui)
-    {
-        this.ui = ui;
+
+	public DeviceController() {
     }
     
 //  Read byte[] from device
@@ -74,8 +84,7 @@ public class DeviceController
             readInputDeviceChannel.position(getLBAOffSet(bytesPerSector, fcPath.size, lba));
             readInputDeviceChannelTransfered = readInputDeviceChannel.read(inputDeviceBuffer); inputDeviceBuffer.flip();
             readInputDeviceChannel.close();
-//            ui.log("Read LBA " + lba + " Transfered: " + readInputDeviceChannelTransfered + "\r\n");
-        } catch (IOException ex) { ui.log("Device().read(..) " + ex.getMessage(), true, true, true, true, false); }
+        } catch (IOException ex) { loggingService.log("Device().read(..) " + ex.getMessage(), true, true, true, true, false); }
         return inputDeviceBuffer.array();
     }
     
@@ -88,8 +97,8 @@ public class DeviceController
             readInputDeviceChannel.position(pos);
             readInputDeviceChannelTransfered = readInputDeviceChannel.read(inputDeviceBuffer); inputDeviceBuffer.flip();
             readInputDeviceChannel.close();
-//            ui.log("Read Pos " + pos + " Transfered: " + readInputDeviceChannelTransfered + "\r\n");
-        } catch (IOException ex) { ui.log("Device().read(..) " + ex.getMessage(), true, true, true, true, false); }
+//            loggingService.log("Read Pos " + pos + " Transfered: " + readInputDeviceChannelTransfered + "\r\n");
+        } catch (IOException ex) { loggingService.log("Device().read(..) " + ex.getMessage(), true, true, true, true, false); }
         return inputDeviceBuffer.array();
     }
     
@@ -98,16 +107,15 @@ public class DeviceController
     {        
         long writeOutputDeviceChannelTransfered = 0;
         ByteBuffer outputDeviceBuffer = null;
-        ui.log("Write " + desc + " Pos (" + getLBAOffSet(bytesPerSector, fcPath.size, lba) + ") ", true, true, true, false, false);
+        loggingService.log("Write " + desc + " Pos (" + getLBAOffSet(bytesPerSector, fcPath.size, lba) + ") ", true, true, true, false, false);
         try (final SeekableByteChannel writeOutputDeviceChannel = Files.newByteChannel(fcPath.path, EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.SYNC)))
         {
             outputDeviceBuffer = ByteBuffer.allocate(bytes.length); outputDeviceBuffer.put(bytes); outputDeviceBuffer.flip(); // logBytes(outputDeviceBuffer.array());
-//            guifx.log("Buffer: " + outputDeviceBuffer.capacity());
             writeOutputDeviceChannel.position(getLBAOffSet(bytesPerSector, fcPath.size, lba));
             writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer);
-            ui.log("Transfered: " + writeOutputDeviceChannelTransfered + "\r\n", true, true, true, false, false);
+            loggingService.log("Transfered: " + writeOutputDeviceChannelTransfered + "\r\n", true, true, true, false, false);
             writeOutputDeviceChannel.close();
-        } catch (IOException ex) { ui.log("Error: Device.writeLBA(..): " + ex.getMessage() + "", true, true, true, true, false); }
+        } catch (IOException ex) { loggingService.log("Error: Device.writeLBA(..): " + ex.getMessage() + "", true, true, true, true, false); }
     }
 
 //  Write Entry byte[] to device WARNING: writeOutputDeviceChannel.position(pos); causes exeption on OSX! Use writeLBA(..) above (from GPT_Entries) (hmm not anymore maybe)
@@ -116,16 +124,16 @@ public class DeviceController
     {        
         long writeOutputDeviceChannelTransfered = 0;
         ByteBuffer outputDeviceBuffer = null;
-        ui.log("Wrote " + desc + " Pos(" + pos + ") ", true, true, true, false, false);
+        loggingService.log("Wrote " + desc + " Pos(" + pos + ") ", true, true, true, false, false);
         try (final SeekableByteChannel writeOutputDeviceChannel = Files.newByteChannel(device.path, EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.SYNC)))
         {
             outputDeviceBuffer = ByteBuffer.allocate(bytes.length); outputDeviceBuffer.put(bytes); outputDeviceBuffer.flip(); // logBytes(outputDeviceBuffer.array());
 //            guifx.log("Buffer: " + outputDeviceBuffer.capacity());
             writeOutputDeviceChannel.position(pos);
             writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer);
-            ui.log("Transfered: " + writeOutputDeviceChannelTransfered + "", true, true, true, false, false);
+            loggingService.log("Transfered: " + writeOutputDeviceChannelTransfered + "", true, true, true, false, false);
             writeOutputDeviceChannel.close();
-        } catch (IOException ex) { ui.log("Error: Device.writePos(..): " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+        } catch (IOException ex) { loggingService.log("Error: Device.writePos(..): " + ex.getMessage() + "\r\n", true, true, true, true, false); }
     }
 
 //  Write KeyFile to partition
@@ -133,7 +141,7 @@ public class DeviceController
     {
 	startCalendar = Calendar.getInstance(Locale.ROOT);
 	boolean encryptkey = true;
-        if ( keyFCPath.size < bufferSize)   { bufferSize = (int)keyFCPath.size; if (FinalCrypt.verbose) ui.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
+        if ( keyFCPath.size < bufferSize)   { bufferSize = (int)keyFCPath.size; if (FinalCrypt.verbose) loggingService.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
 //        else                            { log("BufferSize is set to: " + getHumanSize(bufferSize, 1) + " \r\n"); }
         Stats allDataStats = new Stats(); allDataStats.reset();        
         Stat readKeyFileStat1 = new Stat(); readKeyFileStat1.reset();
@@ -144,7 +152,7 @@ public class DeviceController
         allDataStats.setFilesTotal(1);
         allDataStats.setFileBytesTotal      (keyFCPath.size * 2);
         allDataStats.setAllDataBytesTotal   (keyFCPath.size * 2);
-        ui.log(allDataStats.getStartSummary("Creating Key Device"), true, true, false, false, false);
+        loggingService.log(allDataStats.getStartSummary("Creating Key Device"), true, true, false, false, false);
         try { Thread.sleep(100); } catch (InterruptedException ex) {  }
         
         boolean inputEnded = false;
@@ -169,7 +177,7 @@ public class DeviceController
 		bytesTotal =	    allDataStats.getFilesBytesTotal();
 		bytesProcessed =	    allDataStats.getFilesBytesProcessed();
 		bytesPerMilliSecond =   filesBytesProcessed / (processProgressCalendar.getTimeInMillis() - startCalendar.getTimeInMillis());
-		ui.processProgress
+		mainUI.guifx.processProgress
 		(
 		    (int) (
 			    (( readKeyFileStat1.getFileBytesProcessed() + writeKeyFileStat1.getFileBytesProcessed() + readKeyFileStat2.getFileBytesProcessed() + writeKeyFileStat2.getFileBytesProcessed() ) * 2)
@@ -184,7 +192,7 @@ public class DeviceController
 
         allDataStats.setAllDataStartNanoTime();
 
-        ui.log("Writing " + keyFCPath.path.toAbsolutePath() + " to partition 1 (LBA:"+ firstLBA + ":" + (getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition) + ")", true, true, true, false, false);
+        loggingService.log("Writing " + keyFCPath.path.toAbsolutePath() + " to partition 1 (LBA:"+ firstLBA + ":" + (getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition) + ")", true, true, true, false, false);
         write1loop: while ( ! inputEnded )
         {
             while (pausing)     { try { Thread.sleep(100); } catch (InterruptedException ex) {  } }
@@ -200,7 +208,7 @@ public class DeviceController
                 keyFileBuffer.flip();
                 readKeyFileChannel.close(); readKeyFileStat1.setFileEndEpoch(); readKeyFileStat1.clock();
                 readKeyFileStat1.addFileBytesProcessed(readKeyFileChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyFileChannelTransfered);
-            } catch (IOException ex) { ui.log("Files.newByteChannel(keyFilePath, EnumSet.of(StandardOpenOption.READ)) " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+            } catch (IOException ex) { loggingService.log("Files.newByteChannel(keyFilePath, EnumSet.of(StandardOpenOption.READ)) " + ex.getMessage() + "\r\n", true, true, true, true, false); }
             
 //          Randomize raw key or write raw key straight to partition
 	    SecureRandom random = new SecureRandom();
@@ -216,13 +224,13 @@ public class DeviceController
                 writeOutputDeviceChannel.position((getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition));
                 writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer); outputDeviceBuffer.rewind();
                 writeKeyFileStat1.addFileBytesProcessed(writeOutputDeviceChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyFileChannelTransfered);
-//                ui.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");
+//                loggingService.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");
 
 //              Write keyfile to partition 2
                 writeOutputDeviceChannel.position((getLBAOffSet(bytesPerSector, targetFCPath.size, lastLBA + 1) + writeOutputDeviceChannelPosition));
                 writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer); outputDeviceBuffer.rewind();
                 writeKeyFileStat1.addFileBytesProcessed(writeOutputDeviceChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyFileChannelTransfered);
-//                ui.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");
+//                loggingService.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");
 
                 writeOutputDeviceChannelPosition += writeOutputDeviceChannelTransfered;
 
@@ -239,17 +247,17 @@ public class DeviceController
                     writeOutputDeviceChannel.position((getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition));
                     writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer); outputDeviceBuffer.rewind();
                     writeKeyFileStat1.addFileBytesProcessed(writeOutputDeviceChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyFileChannelTransfered);
-//                    ui.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");                
+//                    loggingService.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");                
 
 //                  Fill in gap at end of partition 2
                     writeOutputDeviceChannel.position((getLBAOffSet(bytesPerSector, targetFCPath.size, lastLBA + 1) + writeOutputDeviceChannelPosition));
                     writeOutputDeviceChannelTransfered = writeOutputDeviceChannel.write(outputDeviceBuffer); outputDeviceBuffer.rewind();
                     writeKeyFileStat1.addFileBytesProcessed(writeOutputDeviceChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyFileChannelTransfered);
-//                    ui.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");                
+//                    loggingService.log("writeOutputDeviceChannelTransfered 1 : " + writeOutputDeviceChannelTransfered + "\r\n");                
                 }
 
                 writeOutputDeviceChannel.close(); writeKeyFileStat1.setFileEndEpoch(); writeKeyFileStat1.clock();
-            } catch (IOException ex) { ui.log(Arrays.toString(ex.getStackTrace()), true, true, false, false, false); }
+            } catch (IOException ex) { loggingService.log(Arrays.toString(ex.getStackTrace()), true, true, false, false, false); }
             keyFileBuffer.clear(); randomizedBuffer.clear(); outputDeviceBuffer.clear();
         }
         readKeyFileChannelPosition = 0;
@@ -259,22 +267,20 @@ public class DeviceController
         inputEnded = false;
 
 //      FILE STATUS        
-        ui.log(" - Write: rd(" +  readKeyFileStat1.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
-        ui.log("wr(" +           writeKeyFileStat1.getFileBytesThroughPut() + ") ", true, true, true, false, false);
-        ui.log(" - Write: rd(" +  readKeyFileStat2.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
-        ui.log("wr(" +           writeKeyFileStat2.getFileBytesThroughPut() + ") ", true, true, true, false, false);
-        ui.log(allDataStats.getAllDataBytesProgressPercentage() + "\r\n", true, true, true, false, false);
+        loggingService.log(" - Write: rd(" +  readKeyFileStat1.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
+        loggingService.log("wr(" +           writeKeyFileStat1.getFileBytesThroughPut() + ") ", true, true, true, false, false);
+        loggingService.log(" - Write: rd(" +  readKeyFileStat2.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
+        loggingService.log("wr(" +           writeKeyFileStat2.getFileBytesThroughPut() + ") ", true, true, true, false, false);
+        loggingService.log(allDataStats.getAllDataBytesProgressPercentage() + "\r\n", true, true, true, false, false);
 
 
         allDataStats.addFilesProcessed(1);
         allDataStats.setAllDataEndNanoTime(); allDataStats.clock();
 
-//        if ( stopPending ) { ui.status("\r\n", false); stopPending = false;  } // It breaks in the middle of encrypting, so the encryption summery needs to begin on a new line
-        ui.log(allDataStats.getEndSummary("creating key device"), true, true, false, false, false);
+        loggingService.log(allDataStats.getEndSummary("creating key device"), true, true, false, false, false);
 
         updateProgressTaskTimer.cancel(); updateProgressTaskTimer.purge();
-//        updateProgressTimeline.stop();
-        ui.processFinished();
+        mainUI.guifx.processFinished();
     }
 
 //  Write KeyFile to partition 1 & 2
@@ -283,16 +289,13 @@ public class DeviceController
     synchronized public void cloneKeyPartition(FCPath keyFCPath, FCPath targetFCPath, long firstLBA, long lastLBA)
     {
 	startCalendar = Calendar.getInstance(Locale.ROOT);
-//	       isValidFile(UI ui, Path path,      boolean readSize,     boolean isKey, boolean symlink, boolean report)
-	if ( ( isValidFile(   ui,keyFCPath.path,          false,keyFCPath.isKey,           false,           true) ) && ( isValidFile(ui, targetFCPath.path, targetFCPath.isKey, false, false, true) ) )
+//	       isValidFile(Path path,      boolean readSize,     boolean isKey, boolean symlink, boolean report)
+	if ( ( isValidFile(keyFCPath.path,          false,keyFCPath.isKey,           false,           true) ) && ( isValidFile(targetFCPath.path, targetFCPath.isKey, false, false, true) ) )
 	{
 	    long targetDeviceSize2 = targetFCPath.size;
-	    long keyPartitionSize = getKeyPartitionSize(ui, keyFCPath);
-	    if ( keyPartitionSize < bufferSize)   { bufferSize = (int)keyPartitionSize; if (FinalCrypt.verbose) ui.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
-//	    long keySize = getKeyPartitionSize(ui, keyDevice);
-//	    if ( keyFCPath.size < bufferSize)   { bufferSize = (int)keySize; if (FinalCrypt.verbose) ui.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n"); }
-	    if ( keyPartitionSize < bufferSize)   { bufferSize = (int)keyPartitionSize; if (FinalCrypt.verbose) ui.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
-//            else                            { log("BufferSize is set to: " + getHumanSize(bufferSize, 1) + " \r\n"); }
+	    long keyPartitionSize = getKeyPartitionSize(keyFCPath);
+	    if ( keyPartitionSize < bufferSize)   { bufferSize = (int)keyPartitionSize; if (FinalCrypt.verbose) loggingService.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
+	    if ( keyPartitionSize < bufferSize)   { bufferSize = (int)keyPartitionSize; if (FinalCrypt.verbose) loggingService.log("BufferSize is limited to keyfile size: " + GPT.getHumanSize(bufferSize, 1) + " \r\n", true, true, true, false, false); }
 	    Stats allDataStats = new Stats(); allDataStats.reset();        
 	    Stat readKeyFileStat1 = new Stat(); readKeyFileStat1.reset();
 	    Stat readKeyFileStat2 = new Stat(); readKeyFileStat2.reset();
@@ -300,14 +303,10 @@ public class DeviceController
 	    Stat writeKeyFileStat2 = new Stat(); writeKeyFileStat2.reset();
 
 	    allDataStats.setFilesTotal(1);
-//	    allDataStats.setFileBytesTotal      (getKeyPartitionSize(ui, keyDevice) * 2);
-//	    allDataStats.setAllDataBytesTotal   (getKeyPartitionSize(ui, keyDevice) * 2);
-//	    allDataStats.setFileBytesTotal      (keyFCPath.size * 2);
-//	    allDataStats.setAllDataBytesTotal   (keyFCPath.size * 2);
 	    allDataStats.setFileBytesTotal      (keyPartitionSize * 2);
 	    allDataStats.setAllDataBytesTotal   (keyPartitionSize * 2);
 
-	    ui.log(allDataStats.getStartSummary("Cloning Key Device"), true, true, false, false, false);
+	    loggingService.log(allDataStats.getStartSummary("Cloning Key Device"), true, true, false, false, false);
 	    try { Thread.sleep(100); } catch (InterruptedException ex) {  }
 
 	    boolean inputEnded = false;
@@ -330,7 +329,7 @@ public class DeviceController
 	    bytesPerMilliSecond =   filesBytesProcessed / (processProgressCalendar.getTimeInMillis() - startCalendar.getTimeInMillis());
 	    updateProgressTask = new TimerTask() { @Override public void run()
 	    {
-		ui.processProgress
+		mainUI.guifx.processProgress
 		(
 			(int) (
 				(
@@ -350,7 +349,7 @@ public class DeviceController
 
 	    allDataStats.setAllDataStartNanoTime();
 
-	    ui.log("Cloning " + keyFCPath.path.toAbsolutePath() + " to " + targetFCPath.path.toAbsolutePath() + " partitions (LBA:"+ firstLBA + ":" + (getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition) + ")", true, true, true, false, false);
+	    loggingService.log("Cloning " + keyFCPath.path.toAbsolutePath() + " to " + targetFCPath.path.toAbsolutePath() + " partitions (LBA:"+ firstLBA + ":" + (getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + writeOutputDeviceChannelPosition) + ")", true, true, true, false, false);
 
 	    readKeyDeviceFileChannelPosition = DeviceController.getLBAOffSet(bytesPerSector, targetFCPath.size, firstLBA) + readKeyDeviceFileChannelPosition;
 	    write1loop: while ( ! inputEnded )
@@ -368,7 +367,7 @@ public class DeviceController
 		    if ( readKeyDeviceFileChannelTransferedTotal >= keyPartitionSize ) { inputEnded = true; keyDeviceBuffer.limit((int)readKeyDeviceFileChannelTransferedTotal - (int)keyPartitionSize); }
 		    readKeyDeviceFileChannel.close(); readKeyFileStat1.setFileEndEpoch(); readKeyFileStat1.clock();
 		    readKeyFileStat1.addFileBytesProcessed(readKeyDeviceFileChannelTransfered); allDataStats.addAllDataBytesProcessed("", readKeyDeviceFileChannelTransfered);
-		} catch (IOException ex) { ui.log("Error: Files.newByteChannel(keyFilePath, EnumSet.of(StandardOpenOption.READ)) " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+		} catch (IOException ex) { loggingService.log("Error: Files.newByteChannel(keyFilePath, EnumSet.of(StandardOpenOption.READ)) " + ex.getMessage() + "\r\n", true, true, true, true, false); }
 
 		// For sone reason keyDeviceBuffer does not poor any data out into the writeOutputDeviceChannel, but does output data to GPT.logBytes
 		outputDeviceBuffer.put(keyDeviceBuffer.array()); outputDeviceBuffer.flip();
@@ -384,7 +383,7 @@ public class DeviceController
 
 		    writeOutputDeviceChannelPosition += writeOutputDeviceChannelTransfered;
 		    writeOutputDeviceChannel.close(); writeKeyFileStat1.setFileEndEpoch(); writeKeyFileStat1.clock();
-		} catch (IOException ex) { ui.log("Error: Files.newByteChannel(targetFCPath.path, EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.SYNC))" + ex.getMessage() + "\r\n", true, true, true, true, false); }
+		} catch (IOException ex) { loggingService.log("Error: Files.newByteChannel(targetFCPath.path, EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.SYNC))" + ex.getMessage() + "\r\n", true, true, true, true, false); }
 		keyDeviceBuffer.clear();
 	    }
 	    readKeyDeviceFileChannelPosition = 0;
@@ -394,33 +393,31 @@ public class DeviceController
 	    inputEnded = false;
 
     //      FILE STATUS        
-	    ui.log(" - Write: rd(" +  readKeyFileStat1.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
-	    ui.log("wr(" +           writeKeyFileStat1.getFileBytesThroughPut() + ") ", true, true, true, false, false);
-	    ui.log(" - Write: rd(" +  readKeyFileStat2.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
-	    ui.log("wr(" +           writeKeyFileStat2.getFileBytesThroughPut() + ") ", true, true, true, false, false);
-	    ui.log(allDataStats.getAllDataBytesProgressPercentage(), true, true, true, false, false);
+	    loggingService.log(" - Write: rd(" +  readKeyFileStat1.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
+	    loggingService.log("wr(" +           writeKeyFileStat1.getFileBytesThroughPut() + ") ", true, true, true, false, false);
+	    loggingService.log(" - Write: rd(" +  readKeyFileStat2.getFileBytesThroughPut() + ") -> ", true, true, true, false, false);
+	    loggingService.log("wr(" +           writeKeyFileStat2.getFileBytesThroughPut() + ") ", true, true, true, false, false);
+	    loggingService.log(allDataStats.getAllDataBytesProgressPercentage(), true, true, true, false, false);
 
 
 	    allDataStats.addFilesProcessed(1);
 	    allDataStats.setAllDataEndNanoTime(); allDataStats.clock();
 
-    //        if ( stopPending ) { ui.status("\r\n", false); stopPending = false;  } // It breaks in the middle of encrypting, so the encryption summery needs to begin on a new line
-	    ui.log(allDataStats.getEndSummary("cloning key device"), true, true, false, false, false);
+	    loggingService.log(allDataStats.getEndSummary("cloning key device"), true, true, false, false, false);
 
 	    updateProgressTaskTimer.cancel(); updateProgressTaskTimer.purge();
-    //        updateProgressTimeline.stop();
-	    ui.processFinished();
+	    mainUI.guifx.processFinished();
 	}
 	else
 	{
-	    ui.log("Warning: Invalid key or target. Cloning aborted.\r\n", true, true, true, true, false);
+	    loggingService.log("Warning: Invalid key or target. Cloning aborted.\r\n", true, true, true, true, false);
 	}
     }
 
-//    public static long getKeyPartitionSize(UI ui, Path keyDeviceFilePath)
-    public static long getKeyPartitionSize(UI ui, FCPath keyFCPath)
+//    public static long getKeyPartitionSize(Path keyDeviceFilePath)
+    public static long getKeyPartitionSize(FCPath keyFCPath)
     {
-        GPT gpt = new GPT(ui);
+        GPT gpt = new GPT();
         gpt.read(keyFCPath);
         long partitionSize =    bytesPerSector + ((gpt.gpt_Entries1.gpt_entry[0].endingLBA - gpt.gpt_Entries1.gpt_entry[0].startingLBA) * bytesPerSector);
 //        System.out.println("flba1: " + gpt.gpt_Entries.firstLBA1 + " llba1: "  + gpt.gpt_Entries.lastLBA1 + " keysize: " + partitionSize);
@@ -428,23 +425,22 @@ public class DeviceController
     }
 
 //  Wrapper method
-    synchronized public static long getDeviceSize(UI ui, Path path, boolean isKey)
+    synchronized public static long getDeviceSize(Path path, boolean isKey)
     {
-	long size = getDeviceSize2(ui, path, isKey, true); return size; // Customized method (platform independent)
+	long size = getDeviceSize2(path, isKey, true); return size; // Customized method (platform independent)
     }
 
 //  Get size of device NOT USED!
-    synchronized public static long getDeviceSize1(UI ui, Path path)
+    synchronized public static long getDeviceSize1(Path path)
     {
         long deviceSize = 0;
-        try (final SeekableByteChannel deviceChannel = Files.newByteChannel(path, EnumSet.of(StandardOpenOption.READ))) { deviceSize = deviceChannel.size(); deviceChannel.close(); } catch (IOException ex) { ui.log(ex.getMessage(), true, true, false, false, false); }
+        try (final SeekableByteChannel deviceChannel = Files.newByteChannel(path, EnumSet.of(StandardOpenOption.READ))) { deviceSize = deviceChannel.size(); deviceChannel.close(); } catch (IOException ex) { loggingService.log(ex.getMessage(), true, true, false, false, false); }
         return deviceSize;
     }
 
-    synchronized public static long getDeviceSize2(UI ui, Path path, boolean isKey, boolean firstcall) // OS Independent half or dubbel guess size test (Files.size(..) doesn't work on Apple OSX)
+    synchronized public static long getDeviceSize2(Path path, boolean isKey, boolean firstcall) // OS Independent half or dubbel guess size test (Files.size(..) doesn't work on Apple OSX)
     {
 	boolean verbose = false;
-//	deviceSize = 0;
 	
 	if (firstcall)
 	{
@@ -456,14 +452,14 @@ public class DeviceController
 			cycles = 0;
 			finished = false;
 	}
-//	    isValidFile(UI ui, Path path, boolean readSize, boolean isKey, boolean symlink, boolean report)
-	if (isValidFile(   ui,      path,            false,         isKey,           false,           true ))
+
+	if (isValidFile(path,            false,         isKey,           false,           true ))
 	{
 	    while (! finished)
 	    {
 		try
 		{
-		    deviceSize = guessDeviceSize(ui, path, verbose);
+		    deviceSize = guessDeviceSize(path, verbose);
 		}
 		catch (IOException ex)
 		{
@@ -479,7 +475,7 @@ public class DeviceController
 		    currpos = above; step = 1;
 		    lastpos = currpos;
 //		    getDeviceSize2(ui, path, isKey, true)
-		    getDeviceSize2(ui,path, isKey, false);
+		    getDeviceSize2(path, isKey, false);
 		}
 	    }
 	}
@@ -490,13 +486,13 @@ public class DeviceController
 	return deviceSize;
     }
     
-    synchronized private static long guessDeviceSize(UI ui, Path path, boolean verbose) throws IOException
+    synchronized private static long guessDeviceSize(Path path, boolean verbose) throws IOException
     {
-        if (verbose) ui.log(String.format("%-20s %-20s %-20s %-20s %-20s %-20s \r\n", "LastPoss     ", "CurrPoss     ", "Step    ", "Above     ", "Below    ", "Cycles     "), true, true, true, false, false);
+        if (verbose) loggingService.log(String.format("%-20s %-20s %-20s %-20s %-20s %-20s \r\n", "LastPoss     ", "CurrPoss     ", "Step    ", "Above     ", "Below    ", "Cycles     "), true, true, true, false, false);
         
         label: while (! finished)
         {
-            if (verbose) ui.log(String.format("%-20d %-20d %-20d %-20d %-20d %-20d \r\n", lastpos, currpos, step, above, below, cycles), true, true, true, false, false);
+            if (verbose) loggingService.log(String.format("%-20d %-20d %-20d %-20d %-20d %-20d \r\n", lastpos, currpos, step, above, below, cycles), true, true, true, false, false);
             
             final SeekableByteChannel deviceChannel = Files.newByteChannel(path, EnumSet.of(StandardOpenOption.READ));
             deviceChannel.position(currpos);
@@ -515,7 +511,7 @@ public class DeviceController
         return below;
     }    
 
-    private void halveTest(UI ui)
+    private void halveTest()
     {
         long deviceSize = 0;
         long lastpos = 0;
@@ -529,12 +525,12 @@ public class DeviceController
         boolean iofailed = false;
 
         iofailed = false;        
-        ui.log("Target: " + target + "\r\n", true, true, true, false, false);
-        ui.log(String.format("%-20s %-20s %-20s %-20s %-20s %-20s \r\n", "LastPoss     ", "CurrPoss     ", "Step    ", "Above     ", "Below    ", "Cycles     "), true, true, true, false, false);
+        loggingService.log("Target: " + target + "\r\n", true, true, true, false, false);
+        loggingService.log(String.format("%-20s %-20s %-20s %-20s %-20s %-20s \r\n", "LastPoss     ", "CurrPoss     ", "Step    ", "Above     ", "Below    ", "Cycles     "), true, true, true, false, false);
         
         label: while (! finished)
         {
-            ui.log(String.format("%-20d %-20d %-20d %-20d %-20d %-20d \r\n", lastpos, currpos, step, above, below, cycles), true, true, true, false, false);
+            loggingService.log(String.format("%-20d %-20d %-20d %-20d %-20d %-20d \r\n", lastpos, currpos, step, above, below, cycles), true, true, true, false, false);
             if      (currpos < target) { above = currpos; currpos += step; step += step; }
             else if (currpos > target) { below = currpos; currpos -= (step / 2); step = 1; }
             if ((currpos != 0) && (currpos == lastpos)) {finished = true;}
@@ -559,18 +555,18 @@ public class DeviceController
         }
     }
     
-    public static boolean isValidDir(UI ui, Path path, boolean symlink, boolean report)
+    public static boolean isValidDir(Path path, boolean symlink, boolean report)
     {
         boolean validdir = true; String conditions = "";        String exist = ""; String read = ""; String write = ""; String symbolic = "";
         if ( ! Files.exists(path))                              { validdir = false; exist = "[not found] "; conditions += exist; }
         if ( ! Files.isReadable(path) )                         { validdir = false; read = "[not readable] "; conditions += read;  }
         if ( ! Files.isWritable(path) )                         { validdir = false; write = "[not writable] "; conditions += write;  }
         if ( (! symlink) && (Files.isSymbolicLink(path)) )      { validdir = false; symbolic = "[symlink]"; conditions += symbolic;  }
-        if ( validdir ) {  } else { if ( report )               { ui.log("Warning: Invalid Dir: " + path.toString() + ": " + conditions + "\r\n", true, true, true, true, false); } }
+        if ( validdir ) {  } else { if ( report )               { loggingService.log("Warning: Invalid Dir: " + path.toString() + ": " + conditions + "\r\n", true, true, true, true, false); } }
         return validdir;
     }
 
-    public static boolean isValidFile(UI ui, Path path, boolean readSize, boolean isKey, boolean symlink, boolean report)
+    public static boolean isValidFile(Path path, boolean readSize, boolean isKey, boolean symlink, boolean report)
     {
         boolean validfile = true; String conditions = "";       String size = ""; String exist = ""; String dir = ""; String read = ""; String write = ""; String symbolic = "";
         long fileSize = 0;					if ( readSize ) { try { fileSize = Files.size(path); } catch (IOException ex) { } }
@@ -584,7 +580,7 @@ public class DeviceController
             if (( ! isKey ) && ( ! Files.isWritable(path)) ) { validfile = false; write = "[not writable] "; conditions += write; }
             if ( (! symlink) && (Files.isSymbolicLink(path)) )  { validfile = false; symbolic = "[symlink]"; conditions += symbolic; }
         }
-        if ( ! validfile ) { if ( report )			{ ui.log("Warning: DevCTRL: Invalid File: " + path.toAbsolutePath().toString() + ": " + conditions + "\r\n", true, true, true, true, false); } }                    
+        if ( ! validfile ) { if ( report )			{ loggingService.log("Warning: DevCTRL: Invalid File: " + path.toAbsolutePath().toString() + ": " + conditions + "\r\n", true, true, true, true, false); } }                    
         return validfile;
     }
 

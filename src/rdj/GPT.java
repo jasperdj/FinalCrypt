@@ -54,11 +54,11 @@ public class GPT
     
     private int printAddressByteCounter;
 
-    public GPT(UI ui)
+    public GPT()
     {
         this.ui = ui;
         
-        gpt_PMBR =	new GPT_PMBR(this.ui);
+        gpt_PMBR =	new GPT_PMBR();
         gpt_Header1 =   new GPT_Header(this.ui, this, 1L);
         gpt_Entries1 =  new GPT_Entries(this.ui,this,2L, 128);
         gpt_Header2 =   new GPT_Header(this.ui, this, -1L);

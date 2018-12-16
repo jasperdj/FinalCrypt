@@ -60,6 +60,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import rdj.UIs.MainUI;
+import rdj.Util.ResourceUtil;
 
 public class CreateOTPKey extends Application implements Initializable
 {
@@ -67,7 +69,6 @@ public class CreateOTPKey extends Application implements Initializable
     private Stage stage;
     private Scene scene;
     private FXMLLoader loader;
-    private GUIFX guifx;
     public Path currentDirPath;
     private Path keyPath;
     private Timeline repeaterTimeline;
@@ -117,10 +118,10 @@ public class CreateOTPKey extends Application implements Initializable
     @Override
     public void start(Stage primaryStage) throws Exception
     {
-        loader = new FXMLLoader(getClass().getResource("CreateOTPKey.fxml"));
+        loader = new FXMLLoader(ResourceUtil.getResource("CreateOTPKey.fxml"));
 	root = loader.load();
         controller = loader.getController();
-        scene = new Scene((Parent)loader.getRoot());        
+        scene = new Scene(loader.getRoot());
         stage = primaryStage;
         stage.setScene(scene);
         stage.setTitle("Create OTP Key");
@@ -132,7 +133,7 @@ public class CreateOTPKey extends Application implements Initializable
     @Override
     public void initialize(URL url, ResourceBundle rb)
     {
-	bgImageView.setImage(new Image(getClass().getResourceAsStream("/rdj/images/Gardenchurch.jpg")));
+	bgImageView.setImage(new Image(ResourceUtil.getResourceAsStream("/rdj/images/Gardenchurch.jpg")));
 	unitChoiceBox.getItems().add("Bytes");
 	unitChoiceBox.getItems().add("KiB");
 	unitChoiceBox.getItems().add("MiB");
@@ -160,7 +161,6 @@ public class CreateOTPKey extends Application implements Initializable
 		    keyPath = Paths.get(currentDirPath.toAbsolutePath().toString(), filenameTextField.getText());
 		    statusLabel1.setText("File already exists");
 		    statusLabel2.setText(keyPath.toAbsolutePath().toString());
-//		    calculateOTPKeyFileSize();
 		}
 		else
 		{
@@ -209,10 +209,9 @@ public class CreateOTPKey extends Application implements Initializable
 //	calculateOTPKeyFileSize();
     }    
 
-    public void setCurrentDir(Path curDirPath, GUIFX guifx)
+    public void setCurrentDir(Path curDirPath)
     {
-	this.guifx = guifx;
-	currentDirPath = curDirPath; 
+	currentDirPath = curDirPath;
 	statusLabel1.setText("Current directory");
 	statusLabel2.setText(currentDirPath.toAbsolutePath().toString());
     }
@@ -441,7 +440,7 @@ public class CreateOTPKey extends Application implements Initializable
     
     private void closeWindow()
     {
-	guifx.updateFileChoosers();
+	MainUI.get().guifx.updateFileChoosers();
 	Stage stage = (Stage) cancelButton.getScene().getWindow(); stage.close();
     }
 

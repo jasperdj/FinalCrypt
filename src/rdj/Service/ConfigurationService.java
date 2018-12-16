@@ -34,17 +34,20 @@ System.getProperty("user.dir");
 "user.home"             User home directory
 "user.name"             User account name
 */
-package rdj;
+package rdj.Service;
+
+import rdj.Util.ResourceUtil;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Calendar;
+import java.util.prefs.Preferences;
 
-public class Configuration
-{    
-    private UI ui;
+public class ConfigurationService
+{
+    private static ConfigurationService configurationService;
 
     public   String platform;
     private  String fileSeparator;
@@ -55,10 +58,16 @@ public class Configuration
     private  Path errorFilePath;
     private final Calendar currentTimeCalendar;
     private final String timeStampString;
+    private Preferences prefs;
 
-    public Configuration(UI ui)
+    public static ConfigurationService get() {
+        if (configurationService == null) configurationService = new ConfigurationService();
+
+        return configurationService;
+    }
+
+    protected ConfigurationService()
     {
-        this.ui = ui;
         platform = System.getProperty("os.name").toLowerCase();
         if ( platform.indexOf("windows") != -1 ) { fileSeparator = "\\"; lineTerminator = "\r\n"; } else { fileSeparator = "/"; lineTerminator = "\r\n"; }
 
@@ -77,10 +86,14 @@ public class Configuration
         logFilePath =   Paths.get(logDirPath.toString(),"finalcrypt_" + timeStampString+ ".log");
         errorFilePath = Paths.get(logDirPath.toString(),"finalcrypt_" + timeStampString+ ".err");
 
-        boolean missingDirsDetected = false;
-        boolean missingCriticalDirsDetected = false;
-        if (Files.notExists(dataDirPath)) { try { Files.createDirectory(dataDirPath); println("Action:  Config: Creating missing directory: " + dataDirPath); } catch (IOException ex) { ui.log("Error: Files.createDirectory(" + dataDirPath + ");: " + ex.getMessage(), true, true, true, false, false); } }
-        if (Files.notExists(logDirPath)) { try { Files.createDirectory(logDirPath); println("Action:  Config: Creating missing directory: " + logDirPath); } catch (IOException ex) { ui.log("Error: Files.createDirectory(" + dataDirPath + ");: " + ex.getMessage(), true, true, true, false, false); } }
+        if (Files.notExists(dataDirPath)) { try { Files.createDirectory(dataDirPath); println("Action:  Config: Creating missing directory: " + dataDirPath); } catch (IOException ex) { LoggingService.get().log("Error: Files.createDirectory(" + dataDirPath + ");: " + ex.getMessage(), true, true, true, false, false); } }
+        if (Files.notExists(logDirPath)) { try { Files.createDirectory(logDirPath); println("Action:  Config: Creating missing directory: " + logDirPath); } catch (IOException ex) { LoggingService.get().log("Error: Files.createDirectory(" + dataDirPath + ");: " + ex.getMessage(), true, true, true, false, false); } }
+
+        prefs = Preferences.userRoot().node(ResourceUtil.getClassName());
+    }
+
+    private void initPreferences() {
+        Preferences.userRoot().node(ResourceUtil.getClassName());
     }
 
     // Just the getters and setters
@@ -89,7 +102,15 @@ public class Configuration
     public Path  getLogDirPath()    {return logDirPath;}
     public Path  getLogFilePath()   {return logFilePath;}
     public Path  getErrFilePath() {return errorFilePath;}
-    
+
+    public Preferences getPrefs() {
+        return prefs;
+    }
+
+    public void setPrefs(Preferences prefs) {
+        this.prefs = prefs;
+    }
+
     private void println(String string)
     {
         System.out.println(string);

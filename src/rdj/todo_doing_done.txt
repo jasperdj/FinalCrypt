@@ -17,6 +17,7 @@ Change FinalCrypt -> properties -> splash screen -> icon on Windows
 Set version nbproject/project.properties application.implementation.version=1.2.3
 Set version on file: Version & Version2
 Set "<Program_Version>2.7.2</Program_Version>" in FinalCrypt_pad.xml file
+Create and serve a delicious cookie to Jasper.
 
 =================================== Done ====================================
 

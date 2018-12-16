@@ -18,6 +18,10 @@
  */
 package rdj;
 
+import rdj.Service.LoggingService;
+import rdj.UIs.MainUI;
+import sun.applet.Main;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,12 +44,13 @@ public class GPT_PMBR // Protective MBR
     private byte[] partition3Bytes;
     private byte[] partition4Bytes;
     private byte[] magicNumberBytes;
-    private UI ui;
 
-    public GPT_PMBR(UI ui)
+    private LoggingService loggerService;
+
+    public GPT_PMBR()
     {
-        this.ui = ui;
-	
+        loggerService = LoggingService.get();
+
 //	446
         bootcodeBytes = new byte[440];
         diskSignatureBytes = new byte[4];
@@ -100,7 +105,7 @@ public class GPT_PMBR // Protective MBR
 
     public void read(FCPath fcPath)
     {
-        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController(ui).readLBA(fcPath, ABSTRACT_LBA, this.LENGTH);
+        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController().readLBA(fcPath, ABSTRACT_LBA, this.LENGTH);
 //      Offset        Length    When            Data
 //      0  (0x00)     440 bytes During LBA 0    Bootloader bytes
                                                                         bootcodeBytes = GPT.getBytesPart(bytes, 0, 440);
@@ -163,8 +168,8 @@ public class GPT_PMBR // Protective MBR
 	setDesc();
     }
 
-//    public void write(Device device) { new DeviceController(ui).writeLBA(getDesc(), getBytes(), device, ABSTRACT_LBA); }
-    public void write(FCPath fcPath) { new DeviceController(ui).writeLBA(getDesc(), getBytes(), fcPath, ABSTRACT_LBA); }
+//    public void write(Device device) { new DeviceController().writeLBA(getDesc(), getBytes(), device, ABSTRACT_LBA); }
+    public void write(FCPath fcPath) { new DeviceController().writeLBA(getDesc(), getBytes(), fcPath, ABSTRACT_LBA); }
 
     public byte[] getBytes(int off, int length) { return GPT.getBytesPart(getBytes(), off, length); }
     public byte[] getBytes()
@@ -187,7 +192,7 @@ public class GPT_PMBR // Protective MBR
         return GPT.byteListToByteArray(definitiveByteList);
     }
 
-    public void print() { ui.log(toString(), true, true, true, false, false); }
+    public void print() { loggerService.log(toString(), true, true, true, false, false); }
     
     private void setDesc() { DESCSTRING = ("[ LBA " + ABSTRACT_LBA + " - Protective MBR (" + getBytes().length + " Bytes) Storage: " + GPT.getLBAHumanSize(sizeInLBABytes,1) + " ]"); }
     private String getDesc() { return DESCSTRING; }

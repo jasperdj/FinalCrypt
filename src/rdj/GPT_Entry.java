@@ -78,7 +78,7 @@ public class GPT_Entry
    public void read(FCPath keyFCPath)
     {
 	pos = ((DeviceController.getLBAOffSet(DeviceController.bytesPerSector, keyFCPath.size, ABSTRACT_LBA)) + (ENTRYNUMBER * LENGTH));
-        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController(ui).readPos(keyFCPath, pos, LENGTH);
+        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController().readPos(keyFCPath, pos, LENGTH);
 //      Offset      Length      When            Data
 //      0 (0x00)    16 bytes    During LBA 2    Partition type GUID
                                                 partitionTypeGUIDBytes =		    GPT.getBytesPart(bytes, 0, 16);
@@ -119,9 +119,9 @@ public class GPT_Entry
     }
     
     public void write(FCPath fcPath)						{ pos = ((DeviceController.getLBAOffSet(DeviceController.bytesPerSector, fcPath.size, ABSTRACT_LBA)) + (ENTRYNUMBER * LENGTH));
-										  new DeviceController(ui).writePos(getDesc(), getBytes(), fcPath, pos); } // Causes exeption on OSX
-    public void writeKeyPartitions(FCPath keyFCPath, FCPath targetFCPath)	{ new DeviceController(ui).writeKeyPartition(keyFCPath, targetFCPath, startingLBA, endingLBA); }
-    public void cloneKeyPartition(FCPath keyFCPath, FCPath targetFCPath)	{ new DeviceController(ui).cloneKeyPartition(keyFCPath, targetFCPath, startingLBA, endingLBA); }
+										  new DeviceController().writePos(getDesc(), getBytes(), fcPath, pos); } // Causes exeption on OSX
+    public void writeKeyPartitions(FCPath keyFCPath, FCPath targetFCPath)	{ new DeviceController().writeKeyPartition(keyFCPath, targetFCPath, startingLBA, endingLBA); }
+    public void cloneKeyPartition(FCPath keyFCPath, FCPath targetFCPath)	{ new DeviceController().cloneKeyPartition(keyFCPath, targetFCPath, startingLBA, endingLBA); }
     
         
     public byte[] getBytes(int off, int length) { return GPT.getBytesPart(GPT_Entry.this.getBytes(), off, length); }

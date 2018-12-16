@@ -18,6 +18,9 @@
  */
 package rdj;
 
+import rdj.Service.LoggingService;
+import rdj.UIs.MainUI;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -38,16 +41,24 @@ import java.util.EnumSet;
 
 public class Validate
 {
+	private static LoggingService loggingService;
+	private static MainUI mainUI;
+	
+	static {
+		loggingService = LoggingService.get();
+		mainUI = MainUI.get();
+	}
+	
     private static Path selectedKeyPath;
     public static long bytesCount;
     private static MySimpleFCFileVisitor mySimpleFCFileVisitor;
     
 
-    public static void validateBuild(UI ui, FCPathList targetFCPathList, FCPath keyFCPath, boolean printgpt, boolean deletegpt)
+    public static void validateBuild(FCPathList targetFCPathList, FCPath keyFCPath, boolean printgpt, boolean deletegpt)
     {
     }
 
-    synchronized public static boolean isValidDir(UI ui, Path targetDirPath, boolean symlink, boolean report)
+    synchronized public static boolean isValidDir(Path targetDirPath, boolean symlink, boolean report)
     {
         boolean validdir = true; String conditions = "";				    String exist = ""; String read = ""; String write = ""; String symbolic = "";
         if ( ! Files.exists(targetDirPath))						    { validdir = false; exist = "[not found] "; conditions += exist; }
@@ -55,21 +66,21 @@ public class Validate
         if ( ! Files.isWritable(targetDirPath) )					    { validdir = false; write = "[not writable] "; conditions += write;  }
         if ( (! symlink) && (Files.isSymbolicLink(targetDirPath)) )			    { validdir = false; symbolic = "[symlink]"; conditions += symbolic;  }
 //        if ( validdir ) {  } else { if ( report )					    { ui.error("Warning: Validate.isValidDir: " + targetDirPath.toString() + ": " + conditions + "\r\n"); } }
-        if ( ! validdir )								    { if ( report ) { ui.log("Warning: skipping dir: " + targetDirPath.toString() + ": " + conditions + "\r\n", true, true, false, false, false); } }
+        if ( ! validdir )								    { if ( report ) { loggingService.log("Warning: skipping dir: " + targetDirPath.toString() + ": " + conditions + "\r\n", true, true, false, false, false); } }
         return validdir;
     }
 
-    synchronized public static boolean isValidFile(UI ui, String caller, Path path, Path keyPath, boolean device, long minSize, boolean symlink, boolean writable, boolean report) // fileValidation Wrapper (including target==keySource comparison)
+    synchronized public static boolean isValidFile(String caller, Path path, Path keyPath, boolean device, long minSize, boolean symlink, boolean writable, boolean report) // fileValidation Wrapper (including target==keySource comparison)
     {
 	
         boolean validfile = true; String conditions = "";				    String key = "";
-	validfile = isValidFile(ui, caller, path, false, device, minSize, symlink, writable, report);
+	validfile = isValidFile(caller, path, false, device, minSize, symlink, writable, report);
 	if ((keyPath != null) && validfile) { if (path.compareTo(keyPath) == 0) { validfile = false; key = "[is key] "; conditions += key; }}	
-        if ( ! validfile ) { if ( report )						    { ui.log("Warning: " + path.toString() + ": " + conditions + "\r\n", true, true, false, false, false); } }                    
+        if ( ! validfile ) { if ( report )						    { loggingService.log("Warning: " + path.toString() + ": " + conditions + "\r\n", true, true, false, false, false); } }                    
         return validfile;
     }
 
-    synchronized public static boolean isValidFile(UI ui, String caller, Path path, boolean isKey, boolean device, long minSize, boolean symlink, boolean writable, boolean report)
+    synchronized public static boolean isValidFile(String caller, Path path, boolean isKey, boolean device, long minSize, boolean symlink, boolean writable, boolean report)
     {
         boolean validfile = true; String conditions = "";				    String size = ""; String exist = ""; String dir = ""; String read = ""; String write = ""; String symbolic = ""; String key = "";
 
@@ -77,8 +88,8 @@ public class Validate
         else
         {
             if ( Files.isDirectory(path))						    { validfile = false; dir = "[is directory] "; conditions += dir; }
-	    long fileSize = 0; if ( device )						    { fileSize = 0; fileSize = DeviceController.getDeviceSize(ui, path, isKey); }
-	    else									    { fileSize = 0; try { fileSize = Files.size(path); } catch (IOException ex)  { ui.log("Error: Validate: IOException: Files.size(" + path.toString() + ") Size: " + fileSize + "<" + minSize + " "+ ex.getMessage() + "\r\n", true, true, true, true, false); } }
+	    long fileSize = 0; if ( device )						    { fileSize = 0; fileSize = DeviceController.getDeviceSize(path, isKey); }
+	    else									    { fileSize = 0; try { fileSize = Files.size(path); } catch (IOException ex)  { loggingService.log("Error: Validate: IOException: Files.size(" + path.toString() + ") Size: " + fileSize + "<" + minSize + " "+ ex.getMessage() + "\r\n", true, true, true, true, false); } }
             if ( fileSize < minSize )							    { validfile = false; size = path.toString() + " smaller than " + minSize + " byte "; conditions += size; }
             if ( ! Files.isReadable(path) )						    { validfile = false; read = "[not readable] "; conditions += read; }
             if ((! isKey) && (writable) && ( ! Files.isWritable(path)))		    { validfile = false; write = "[not writable] "; conditions += write; }
@@ -88,9 +99,7 @@ public class Validate
 	if ( ! validfile )
 	{ 
 	    if ( report )
-//	    { ui.error("Warning: Validate.isValidFile(...): " + caller + " Invalid File: " + targetSourcePath.toAbsolutePath().toString() + ": " + conditions + "\r\n"); } 
-//	    { ui.status("Warning: " + caller + " " + path.toString() + ": " + conditions + "\r\n", true); } 
-	    { ui.log("Warning: " + path.toString() + ": " + conditions + "\r\n", true, true, false, false, false); } 
+	    { loggingService.log("Warning: " + path.toString() + ": " + conditions + "\r\n", true, true, false, false, false); }
 	}                    
         return validfile;
     }
@@ -103,7 +112,7 @@ public class Validate
 //			🔓!  Decrypt Legacy  (Key can't be checked! No Token present in old format)
 //			⛔   Decrypt Abort   (Key Failed)
 
-    synchronized public static boolean targetSourceHasFCToken(UI ui, Path targetSourcePath) // Tested
+    synchronized public static boolean targetSourceHasFCToken(Path targetSourcePath) // Tested
     {
 	
 	boolean targetSourceHasToken = false;
@@ -120,7 +129,7 @@ public class Validate
 	    readTargetSourceChannelTransfered = readTargetSourceChannel.read(plainTextTokenBuffer); plainTextTokenBuffer.flip();
 	    if ( readTargetSourceChannelTransfered != plainTextTokenBuffer.capacity() ) { return false; }
 	    readTargetSourceChannel.close(); 
-	} catch (IOException ex) { ui.log("Error: targetSourceHasToken: readTargetSourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+	} catch (IOException ex) { loggingService.log("Error: targetSourceHasToken: readTargetSourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
 	
 	// Compare plainTextTokenBuffer to FINALCRYPT_PLAIN_IEXT_AUTHENTICATION_TOKEN
 	String plainTextTokenString = new String(plainTextTokenBuffer.array(), StandardCharsets.UTF_8);
@@ -131,7 +140,7 @@ public class Validate
 	return targetSourceHasToken;
     }
     
-    synchronized public static boolean targetHasAuthenticatedFCToken(UI ui, Path targetSourcePath, Path keySourcePath) // Tested
+    synchronized public static boolean targetHasAuthenticatedFCToken(Path targetSourcePath, Path keySourcePath) // Tested
     {
 	boolean readTargetSourceChannelError = false;
 	boolean keyAuthenticatedTargetSource =   false;
@@ -151,7 +160,7 @@ public class Validate
 //	    readTargetSourceChannelTransfered = readTargetSourceChannel.read(targetSrcTokenBuffer); targetSrcTokenBuffer.flip();
 	    readTargetSourceChannel.read(targetSrcTokenBuffer); targetSrcTokenBuffer.flip();
 	    readTargetSourceChannel.close(); 
-	} catch (IOException ex) { readTargetSourceChannelError = true; ui.log("Error: targetHasAuthenticatedToken: readTargetSourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+	} catch (IOException ex) { readTargetSourceChannelError = true; loggingService.log("Error: targetHasAuthenticatedToken: readTargetSourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
 	
 	// Encrypted Token Buffer
 	targetEncryptedTokenBuffer.put(targetSrcTokenBuffer.array(), FinalCrypt.FINALCRYPT_PLAIN_IEXT_AUTHENTICATION_TOKEN.length(), FinalCrypt.FINALCRYPT_PLAIN_IEXT_AUTHENTICATION_TOKEN.length()); targetEncryptedTokenBuffer.flip();
@@ -165,7 +174,7 @@ public class Validate
 //		readKeySourceChannelTransfered = readKeySourceChannel.read(keySourceBuffer);
 		readKeySourceChannel.read(keySourceBuffer);
 		keySourceBuffer.flip(); readKeySourceChannel.close();
-	    } catch (IOException ex) { ui.log("Error: keyAuthenticatedTargetSource readKeySourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
+	    } catch (IOException ex) { loggingService.log("Error: keyAuthenticatedTargetSource readKeySourceChannel " + ex.getMessage() + "\r\n", true, true, true, true, false); }
 	    
 	    // Create Encrypted Token Buffer
 	    keyDecryptedTokenBuffer = FinalCrypt.encryptBuffer(targetEncryptedTokenBuffer, keySourceBuffer, false);
@@ -182,17 +191,17 @@ public class Validate
 
 
     // Synchronized removes multifile target inconsistency, but also smooth busy animation
-    public static void buildSelection(UI ui, ArrayList<Path> pathList, FCPath keyFCPath, FCPathList targetFCPathList, boolean symlink, String pattern, boolean negatePattern, boolean status)
+    public static void buildSelection(ArrayList<Path> pathList, FCPath keyFCPath, FCPathList targetFCPathList, boolean symlink, String pattern, boolean negatePattern, boolean status)
     {
 //	if (mySimpleFCFileVisitor != null) {mySimpleFCFileVisitor.running = false;} else {mySimpleFCFileVisitor.running = false;} // Being set within MySimpleFCFileVisitor instantiation
-//				    MySimpleFCFileVisitor(UI ui, boolean verbose, boolean delete, boolean symlink, boolean setFCPathlist, Path keyPath, ArrayList<FCPath> targetFCPathList, String pattern, boolean negatePattern)
-	mySimpleFCFileVisitor = new MySimpleFCFileVisitor(   ui,	     false,         false,          symlink,                  true,    keyFCPath,                   targetFCPathList,	pattern,         negatePattern);
+//				    MySimpleFCFileVisitor(boolean verbose, boolean delete, boolean symlink, boolean setFCPathlist, Path keyPath, ArrayList<FCPath> targetFCPathList, String pattern, boolean negatePattern)
+	mySimpleFCFileVisitor = new MySimpleFCFileVisitor(false,         false,          symlink,                  true,    keyFCPath,                   targetFCPathList,	pattern,         negatePattern);
 	for (Path path:pathList)
 	{
-	    try{ Files.walkFileTree(path, EnumSet.of(FileVisitOption.FOLLOW_LINKS,FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, mySimpleFCFileVisitor);} catch(IOException e) { ui.log("Error: Validate.buildSelection: Files.walkFileTree(path, EnumSet.of(..) " + e.getMessage() + "\r\n", true, true, true, true, false); }
+	    try{ Files.walkFileTree(path, EnumSet.of(FileVisitOption.FOLLOW_LINKS,FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, mySimpleFCFileVisitor);} catch(IOException e) { loggingService.log("Error: Validate.buildSelection: Files.walkFileTree(path, EnumSet.of(..) " + e.getMessage() + "\r\n", true, true, true, true, false); }
 	}
 	mySimpleFCFileVisitor.running = false;
-	ui.buildReady(targetFCPathList);
+	mainUI.guifx.buildReady(targetFCPathList);
 	
 //	if ( (targetFCPathList.size() > 0) && (mySimpleFCFileVisitor.running) )
 //	if ( (targetFCPathList.size() > 0) )
@@ -274,7 +283,7 @@ public class Validate
 	return returnFCPathType;
     }
     
-    synchronized public static FCPath getFCPath(UI ui, String caller, Path path, boolean isKey, Path keyPath, boolean report)
+    synchronized public static FCPath getFCPath(String caller, Path path, boolean isKey, Path keyPath, boolean report)
     {
 	boolean exist =			    false;
 	int	type =			    FCPath.INVALID;
@@ -311,16 +320,16 @@ public class Validate
 	    type = getFCPathType(path);
 	    if (exist)
 	    {
-		if ( (type == FCPath.PARTITION) || (type == FCPath.DEVICE) || (type == FCPath.DEVICE_PROTECTED) )   { size = DeviceController.getDeviceSize(ui, path, isKey); }
-		else if( (exist) && ((type == FCPath.FILE) /*|| (type == FCPath.SYMLINK)*/) )			    { try { size = Files.size(path); } catch (IOException ex)  { ui.log("Error: IOException: Validate.getFCPath: Files.size() "+ ex.getMessage() + "\r\n", true, true, true, true, false); } } // Symlinks give Files.size() errors on broken links
+		if ( (type == FCPath.PARTITION) || (type == FCPath.DEVICE) || (type == FCPath.DEVICE_PROTECTED) )   { size = DeviceController.getDeviceSize(path, isKey); }
+		else if( (exist) && ((type == FCPath.FILE) /*|| (type == FCPath.SYMLINK)*/) )			    { try { size = Files.size(path); } catch (IOException ex)  { loggingService.log("Error: IOException: Validate.getFCPath: Files.size() "+ ex.getMessage() + "\r\n", true, true, true, true, false); } } // Symlinks give Files.size() errors on broken links
 	    }
 	    
 	    readable = Files.isReadable(path);
 	    writable = Files.isWritable(path);
-//	    ui.log("Hidden: " + path.toAbsolutePath().toString() + "\r\n", true, true, false, false, false);
+//	    loggingService.log("Hidden: " + path.toAbsolutePath().toString() + "\r\n", true, true, false, false, false);
 	    if (Files.isRegularFile(path))
 	    {
-		try { isHidden = Files.isHidden(path); } catch (IOException ex)					    { ui.log("Error: IOException: Validate.getFCPath: Files.isHidden(path) "+ ex.getMessage() + "\r\n", true, true, true, true, false); } // SoftDown.eu error
+		try { isHidden = Files.isHidden(path); } catch (IOException ex)					    { loggingService.log("Error: IOException: Validate.getFCPath: Files.isHidden(path) "+ ex.getMessage() + "\r\n", true, true, true, true, false); } // SoftDown.eu error
 	    }
 	    
 	    // Target =============================================================================================================================================================================================
@@ -349,8 +358,8 @@ public class Validate
 	    
 	    if (( isValidFile ))
 	    {
-		isEncrypted = targetSourceHasFCToken(ui, path);
-		if ((isEncrypted) && (keyPath != null)  && (size > (FinalCrypt.FINALCRYPT_PLAIN_IEXT_AUTHENTICATION_TOKEN.length() * 2))) { if (keyPath != null) isDecryptable = targetHasAuthenticatedFCToken(ui, path, keyPath); }
+		isEncrypted = targetSourceHasFCToken(path);
+		if ((isEncrypted) && (keyPath != null)  && (size > (FinalCrypt.FINALCRYPT_PLAIN_IEXT_AUTHENTICATION_TOKEN.length() * 2))) { if (keyPath != null) isDecryptable = targetHasAuthenticatedFCToken(path, keyPath); }
 	    }
 	    if (( isValidFile ) && ( isEncrypted ) && ( ! isDecryptable ))								{ isEncrypted = true; isDecryptable = false; isDecrypted = false; isEncryptable = false; isUnEncryptable = true; isUnDecryptable = true; }
 	    if (( isValidFile )	&& ( isEncrypted ) && (   isDecryptable ))								{ isEncrypted = true; isDecryptable = true;  isDecrypted = false; isEncryptable = false; isUnEncryptable = true; isUnDecryptable = false; }
@@ -440,7 +449,6 @@ public class Validate
 // override only methods of our need (SimpleFileVisitor is a full blown class)
 class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
 {
-    private final UI ui;
     private final PathMatcher pathMatcher;
     private final boolean verbose; 
     private final boolean delete; 
@@ -456,9 +464,8 @@ class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
 //  all *.bit   =   'regex:^.*\.bit$'
 //  all but *.bit   'regex:(?!.*\.bit$)^.*$'
     
-    public MySimpleFCFileVisitor(UI ui, boolean verbose, boolean delete, boolean symlink, boolean setFCPathlist, FCPath keyFCPath, FCPathList targetFCPathList, String pattern, boolean negatePattern)
+    public MySimpleFCFileVisitor(boolean verbose, boolean delete, boolean symlink, boolean setFCPathlist, FCPath keyFCPath, FCPathList targetFCPathList, String pattern, boolean negatePattern)
     {
-        this.ui = ui;
         pathMatcher = FileSystems.getDefault().getPathMatcher(pattern); // "glob:" or "regex:" included in pattern
         this.verbose = verbose;
         this.delete = delete;
@@ -476,8 +483,8 @@ class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
 	if (running)
 	{
 	    if	(delete)	{ return FileVisitResult.CONTINUE; }
-	    else if (setFCPathlist)	{ if ( Validate.isValidDir(ui, path, symlink, true) ) { return FileVisitResult.CONTINUE; } else { return FileVisitResult.SKIP_SUBTREE; } }
-	    else			{ ui.log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); return FileVisitResult.CONTINUE; }
+	    else if (setFCPathlist)	{ if ( Validate.isValidDir(path, symlink, true) ) { return FileVisitResult.CONTINUE; } else { return FileVisitResult.SKIP_SUBTREE; } }
+	    else			{ LoggingService.get().log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); return FileVisitResult.CONTINUE; }
 	}
 	else { targetFCPathList.clear(); return FileVisitResult.TERMINATE; }
     }    
@@ -488,13 +495,13 @@ class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
 	{
 	    if ( (path.getFileName() != null ) && ( negatePattern ^ pathMatcher.matches(path.getFileName())) ) // ^ = XOR just reverses the match when -W instead of -w if given in CLUI
 	    {            
-		if	(delete)                 { try { Files.delete(path); } catch (IOException ex) { ui.log("Error: visitFile(.. ) Failed file: " + path.toString() + " due to: " + ex.getMessage() + "\r\n", true, true, true, true, false); } }
+		if	(delete)                 { try { Files.delete(path); } catch (IOException ex) { LoggingService.get().log("Error: visitFile(.. ) Failed file: " + path.toString() + " due to: " + ex.getMessage() + "\r\n", true, true, true, true, false); } }
 		else if (setFCPathlist)    
 		{
-//    					     getFCPath(UI ui, String caller, Path path, boolean isKey,	 Path keyPath, boolean report)
-		    FCPath fcPath = Validate.getFCPath(   ui,            "",      path,            false, this.keyFCPath.path,           true); targetFCPathList.add(fcPath);
+//    					     getFCPath(String caller, Path path, boolean isKey,	 Path keyPath, boolean report)
+		    FCPath fcPath = Validate.getFCPath(              "",      path,            false, this.keyFCPath.path,           true); targetFCPathList.add(fcPath);
 		}
-		else { ui.log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); }
+		else { LoggingService.get().log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); }
 	    }
 	    return FileVisitResult.CONTINUE;
 	}
@@ -505,8 +512,7 @@ class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
     {
 	if (running)
 	{
-//					     getFCPath(UI ui, String caller, Path path, boolean isKey,	     Path keyPath, boolean report)
-	    FCPath fcPath = Validate.getFCPath(   ui,            "",      path,            false, this.keyFCPath.path,           true); targetFCPathList.add(fcPath);
+	    FCPath fcPath = Validate.getFCPath(              "",      path,            false, this.keyFCPath.path,           true); targetFCPathList.add(fcPath);
 	    return FileVisitResult.SKIP_SIBLINGS;
 	}
 	else { targetFCPathList.clear(); return FileVisitResult.TERMINATE; } 
@@ -516,9 +522,9 @@ class MySimpleFCFileVisitor extends SimpleFileVisitor<Path>
     {
 	if (running)
 	{
-	    if      (delete)        { try { Files.delete(path); } catch (IOException ex) { ui.log("Error: postVisitDirectory: " + path.toString() + " due to: " + ex.getMessage() + "\r\n", true, true, true, true, false); } }
+	    if      (delete)        { try { Files.delete(path); } catch (IOException ex) { LoggingService.get().log("Error: postVisitDirectory: " + path.toString() + " due to: " + ex.getMessage() + "\r\n", true, true, true, true, false); } }
 	    else if (setFCPathlist) {     }
-	    else { ui.log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); }
+	    else { LoggingService.get().log("Huh? this shouldn't have happened. Neither booleans: delete & returnpathlist are present?\r\n", true, true, false, false, false); }
 	    
 	    return FileVisitResult.CONTINUE;
 	}

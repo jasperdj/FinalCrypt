@@ -115,7 +115,7 @@ public class GPT_Header
 
     public void read(FCPath fcPath)
     {
-        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController(ui).readLBA(fcPath, ABSTRACT_LBA, this.LENGTH);
+        byte[] bytes = new byte[(int)LENGTH]; bytes = new DeviceController().readLBA(fcPath, ABSTRACT_LBA, this.LENGTH);
 //      Offset        Length    When            Data
 //      0  (0x00)     8 bytes   During LBA 1    Signature ("EFI PART", 45h 46h 49h 20h 50h 41h 52h 54h or 0x5452415020494645ULL [a] on little-endian machines)
                                                 signatureBytes =			GPT.getBytesPart(bytes, 0, 8);
@@ -198,7 +198,7 @@ public class GPT_Header
     public void setCRC32Partitions()	    {	crc32PartitionsBytes =			getCRC32("GPT_Header1.crc32PartitionsBytes: ", gpt.get_GPT_Entries1().getBytes(), littleEndian); }
     public void setHeaderCRC32Bytes()	    {	headerCRC32Bytes =			getCRC32("GPT_Header1.headerCRC32Bytes:	    ",			      getBytes(0, headerSize), littleEndian); }
     
-    public void	write(FCPath fcPath)				{ new DeviceController(ui).writeLBA(getDesc(), getBytes(false), fcPath, ABSTRACT_LBA); }
+    public void	write(FCPath fcPath)				{ new DeviceController().writeLBA(getDesc(), getBytes(false), fcPath, ABSTRACT_LBA); }
 
     public byte[]   getBytes(int off, int length)		{ return GPT.getBytesPart(getBytes(false), off, length); }
     public byte[]   getBytes(boolean headerCRC32SetToZeo)

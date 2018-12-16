@@ -53,7 +53,7 @@ public class GPT_Entries
 				   gpt_entry[1].create(keySize, gpt.gpt_Entries1.getEntry(1).uniquePartitionGUIDBytes); } setTotalSize(); setDesc();
     }
 
-    public void		write(FCPath targetFCPath)						    { new DeviceController(ui).writeLBA(getDesc(), getBytes(), targetFCPath, ABSTRACT_LBA); }
+    public void		write(FCPath targetFCPath)						    { new DeviceController().writeLBA(getDesc(), getBytes(), targetFCPath, ABSTRACT_LBA); }
 
     public void		createKeyPartitions(FCPath keyFCPath, FCPath targetFCPath)		    { gpt_entry[0].writeKeyPartitions(keyFCPath, targetFCPath); }
     public void		cloneKeyPartitions(FCPath keyFCPath, FCPath targetFCPath)		    { gpt_entry[0].cloneKeyPartition(keyFCPath, targetFCPath); gpt_entry[1].cloneKeyPartition(keyFCPath, targetFCPath); }
